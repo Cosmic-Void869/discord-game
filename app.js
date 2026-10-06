@@ -1,4 +1,5 @@
-const discordSdk = new window.discord.DiscordSDK("1555838141187760128");
+const DiscordSDKClass = window.discord?.DiscordSDK || window.DiscordSDK;
+const discordSdk = DiscordSDKClass ? new DiscordSDKClass("1555838141187760128") : null;
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -31,7 +32,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 
 window.addEventListener('mousemove', (e) => { player.x = e.clientX; });
-window.addEventListener('touchmove', (e) => { if(e.touches.length > 0) player.x = e.touches.clientX; });
+window.addEventListener('touchmove', (e) => { if(e.touches.length > 0) player.x = e.touches[0].clientX; });
 
 // Shoot loop
 setInterval(() => {
@@ -133,11 +134,33 @@ async function initActivity() {
     try {
         resizeCanvas();
         requestAnimationFrame(updateFrame);
+        
+        if (!discordSdk) {
+            throw new Error("Discord SDK global object is not available.");
+        }
+
+        // 1. Initial Handshake link
         await discordSdk.ready();
+        console.log("Discord SDK is ready");
+
+        // 2. Formally Authorize the Session
+        const { code } = await discordSdk.commands.authorize({
+            client_id: "1555838141187760128",
+            response_type: "code",
+            state: "",
+            prompt: "none",
+            scope: ["identify", "guilds"],
+        });
+
+        // 3. Formally Authenticate the Client wrapper
+        await discordSdk.commands.authenticate({
+            access_token: code, 
+        });
+
         welcomeMessage.innerText = "COSMIC DEFENDER ACTIVE";
         gameActive = true;
     } catch (e) {
-        console.error(e);
+        console.error("SDK Initialization failed, triggering Dev Mode fallback:", e);
         welcomeMessage.innerText = "Dev Mode: Playing outside Discord";
         gameActive = true; 
     }
